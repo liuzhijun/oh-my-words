@@ -2,3 +2,8 @@ click
 pandas
 sqlalchemy
 gradio
+uvicorn
+loguru
+fastapi
+tiktoken
+tqdm

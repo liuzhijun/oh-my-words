@@ -9,9 +9,9 @@ from langchain.output_parsers import (
     PydanticOutputParser,
     OutputFixingParser,
 )
-
+# LLM.py 是我自己的语言模型，你可以直接使用 openai 的
+# from langchain.llms.openai import OpenAIChat
 from LLM import OpenAIChat
-
 
 TEMPLATE = """\
 please write a story at least 5 sentences long, using the words [{words}].

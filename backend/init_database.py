@@ -59,3 +59,6 @@ def init():
     book_id = book[book['bk_name'] == book_name]['bk_id'].values[0]
     batch_size = 10
     userbook = op.create_user_book(s, op.UserBookCreate(owner_id=user.id, book_id=book_id, batch_size=batch_size, title=book_name, random=True))
+
+if __name__ == "__main__":
+    init()
