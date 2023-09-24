@@ -127,14 +127,16 @@ with gr.Blocks() as demo:
         select_user_book = gr.Dropdown(
             [], label="记忆计划", info="请选择记忆计划"
         )
+        dataframe_header = ["单词", "中文词意", "id", "记忆量"]
         memorizing_dataframe = gr.Dataframe(
-            headers=["单词", "意思", "id", "记忆量"],
-            datatype=["str", "str", "str", "str"],
-            col_count=(4, "fixed"),
+            headers=dataframe_header,
+            datatype=["str"] * len(dataframe_header),
+            col_count=(len(dataframe_header), "fixed"),
             wrap=True,
         )
         batches = gr.State(value=[])
         current_batch_index = gr.State(value=-1)
+        user_book_id = gr.State(value="")
         with gr.Row():
             # story = gr.HighlightedText([])
             # translated_story = gr.HighlightedText([])
@@ -186,8 +188,13 @@ with gr.Blocks() as demo:
                     forget_count[memorizing_to_word[a.user_memory_word_id]] += 1
             for w in words:
                 new_options.append(f"{w.vc_vocabulary}")
-                word_df.append([w.vc_vocabulary, w.vc_translation, word_to_memorizing[w.vc_id], f"{remember_count[w.vc_id]} / {remember_count[w.vc_id] + forget_count[w.vc_id]}"])
-            df = pd.DataFrame(word_df, columns=["单词", "意思", "id", "记忆量"])
+                word_df.append([
+                    w.vc_vocabulary,  # 单词
+                    w.vc_translation,  # 中文词意
+                    word_to_memorizing[w.vc_id],  # id
+                    f"{remember_count[w.vc_id]} / {remember_count[w.vc_id] + forget_count[w.vc_id]}",  # 记忆量
+                ])
+            df = pd.DataFrame(word_df, columns=dataframe_header)
             # print(df)
             # print(new_options)
             story = memorizing_batch.story
@@ -238,7 +245,7 @@ with gr.Blocks() as demo:
                 ))
             updates = update_batch(memorizing_batch)
             # print(len(batches))
-            return (batches, current_batch_index) + updates + (
+            return (batches, current_batch_index, user_book_id) + updates + (
                     gr.Slider.update(
                         minimum=1,
                         maximum=len(batches),
@@ -250,7 +257,7 @@ with gr.Blocks() as demo:
         select_user_book.select(
             on_select_user_book,
             inputs=[select_user_book],
-            outputs=[batches, current_batch_index] + batch_widget + [progress]
+            outputs=[batches, current_batch_index, user_book_id] + batch_widget + [progress]
         )
 
         def submit_batch(batches, current_batch_index):
@@ -263,7 +270,7 @@ with gr.Blocks() as demo:
             elif current_batch_index > 0:
                 current_batch_index -= 1
             return submit_batch(batches, current_batch_index)
-        def next_batch(batches: List[UserMemoryBatch], current_batch_index: int, memorizing_dataframe: pd.DataFrame, memorize_action: List[str]):
+        def next_batch(batches: List[UserMemoryBatch], current_batch_index: int, user_book_id: str, memorizing_dataframe: pd.DataFrame, memorize_action: List[str]):
             old_index = current_batch_index
             if current_batch_index >= len(batches)-1:
                 current_batch_index = len(batches)-1
@@ -274,7 +281,10 @@ with gr.Blocks() as demo:
                 # print("下一页之前需要保存记忆进度")
                 # print(memorizing_dataframe)
                 # print(memorize_action)
-                old_batch = batches[old_index]
+                # 保存批次进度
+                current_batch = batches[current_batch_index]
+                update_user_book_memorizing_batch(db, user_book_id, current_batch.id)
+                # 保存单词记忆进度
                 actions = []
                 for i in range(len(memorizing_dataframe)):
                     row = memorizing_dataframe.iloc[i]
@@ -293,7 +303,7 @@ with gr.Blocks() as demo:
         )
         next_batch_btn.click(
             next_batch,
-            inputs=[batches, current_batch_index, memorizing_dataframe, memorize_action],
+            inputs=[batches, current_batch_index, user_book_id, memorizing_dataframe, memorize_action],
             outputs=batch_widget + [progress]
         )
 

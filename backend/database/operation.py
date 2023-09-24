@@ -141,6 +141,14 @@ def update_user_book(db: Session, user_book_id: str, user_book: UserBookUpdate):
         db.refresh(db_user_book)
         return db_user_book
 
+def update_user_book_memorizing_batch(db: Session, user_book_id: str, memorizing_batch: str):
+    db_user_book = db.query(schema.UserBook).filter(schema.UserBook.id == user_book_id).first()
+    if db_user_book:
+        db_user_book.memorizing_batch = memorizing_batch
+        db.commit()
+        db.refresh(db_user_book)
+        return db_user_book
+
 def delete_user_book(db: Session, user_book_id: str):
     db_user_book = db.query(schema.UserBook).filter(schema.UserBook.id == user_book_id).first()
     if db_user_book:
