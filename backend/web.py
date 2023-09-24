@@ -71,9 +71,13 @@ with gr.Blocks() as demo:
         select_user_book = gr.Dropdown(
             [], label="记忆计划", info="请选择记忆计划"
         )
+        word_count = gr.Number(value=0, label="单词个数")
         known_words = gr.CheckboxGroup(
             [], label="已学会的单词", info="正式记忆前将去除已学会的单词，提高每个批次的新词密度，进而提高效率"
         )
+        btn = gr.Button("生成批次", elem_id="btn", elem_classes=["abc", "def"])
+        status = gr.Textbox("", lines=1, label="生成结果")
+
         def on_select_user(user):
             print('user', user)
             if user is None:
@@ -87,23 +91,20 @@ with gr.Blocks() as demo:
         def on_select_user_book(user_book):
             print('user_book', user_book)
             if user_book is None:
-                return gr.CheckboxGroup.update(choices=[])
+                return 0, gr.CheckboxGroup.update(choices=[])
             new_options = []
             user_book_id = user_book.split(" [")[1][:-1]
             user_book = get_user_book(db, user_book_id)
             book_id = user_book.book_id
             book = get_book(db, book_id)
             if book is None:
-                return gr.CheckboxGroup.update(choices=new_options)
+                return 0, gr.CheckboxGroup.update(choices=[])
             words = get_words_for_book(db, user_book)
             new_options = [f"{word.vc_vocabulary}" for word in words]
-            return gr.CheckboxGroup.update(choices=new_options)
+            return len(words), gr.CheckboxGroup.update(choices=new_options)
 
         select_user.select(on_select_user, inputs=[select_user], outputs=[select_user_book])
-        select_user_book.select(on_select_user_book, inputs=[select_user_book], outputs=[known_words])
-
-        btn = gr.Button("生成批次", elem_id="btn", elem_classes=["abc", "def"])
-        status = gr.Textbox("", lines=1)
+        select_user_book.select(on_select_user_book, inputs=[select_user_book], outputs=[word_count, known_words])
 
         def submit(user_book, known_words):
             user_book_id = user_book.split(" [")[1][:-1]
@@ -243,6 +244,7 @@ with gr.Blocks() as demo:
                         maximum=len(batches),
                         value=current_batch_index,
                     ),)
+
         batch_widget = [memorizing_dataframe, story, translated_story, memorize_action]
         select_user.select(on_select_user, inputs=[select_user], outputs=[select_user_book])
         select_user_book.select(
@@ -250,6 +252,7 @@ with gr.Blocks() as demo:
             inputs=[select_user_book],
             outputs=[batches, current_batch_index] + batch_widget + [progress]
         )
+
         def submit_batch(batches, current_batch_index):
             memorizing_batch = batches[current_batch_index]
             updates = update_batch(memorizing_batch)

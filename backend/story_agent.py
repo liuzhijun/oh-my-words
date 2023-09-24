@@ -42,7 +42,7 @@ chain = LLMChain(
     llm=llm,
     prompt=prompt_template,
     output_parser=parser,
-    verbose=True,
+    verbose=False,
 )
 
 def tell_story(words: List[str]):
