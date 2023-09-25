@@ -73,18 +73,18 @@ class UserMemoryBatch(Base):
     words = relationship("UserMemoryWord", back_populates="batch")
 
 
-# class UserMemoryBatchAction(Base):
-#     __tablename__ = "user_memory_batch_action"
-#     """
-#     开始记忆到结束记忆的时间，可以计算记忆效率
-#     """
+class UserMemoryBatchAction(Base):
+    __tablename__ = "user_memory_batch_action"
+    """
+    开始记忆到结束记忆的时间，可以计算记忆效率
+    """
 
-#     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-#     batch_id = Column(String, ForeignKey("user_memory_batch.id"))
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    batch_id = Column(String, ForeignKey("user_memory_batch.id"))
 
-#     action = Column(String, default="start")  # start or end
-#     create_time = Column(DateTime, default=datetime.now)
-#     update_time = Column(DateTime, onupdate=datetime.now, default=datetime.now)
+    action = Column(String, default="start")  # start or end
+    create_time = Column(DateTime, default=datetime.now)
+    update_time = Column(DateTime, onupdate=datetime.now, default=datetime.now)
 
 
 class UserMemoryWord(Base):

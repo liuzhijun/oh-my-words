@@ -29,6 +29,9 @@ def track(db: Session, user_book: schema.UserBook, words: List[schema.Word]):
             story=story,
             translated_story=translated_story
         ))
+        if i == 0:
+            user_book.memorizing_batch = user_memory_batch.id
+            db.commit()
         for word in batch_words:
             memory_word = UserMemoryWordCreate(
                 batch_id=user_memory_batch.id,
@@ -39,22 +42,16 @@ def track(db: Session, user_book: schema.UserBook, words: List[schema.Word]):
         db.commit()
 
 def remenber(db: Session, user_memory_word_id: str):
-    memory_action = UserMemoryActionCreate(
+    return create_user_memory_action(db, UserMemoryActionCreate(
         user_memory_word_id=user_memory_word_id,
-        action="remenber"
-    )
-    db_memory_action = schema.UserMemoryAction(**memory_action.dict())
-    db.add(db_memory_action)
-    db.commit()
+        action="remember"
+    ))
 
 def forget(db: Session, user_memory_word_id: str):
-    memory_action = UserMemoryActionCreate(
+    return create_user_memory_action(db, UserMemoryActionCreate(
         user_memory_word_id=user_memory_word_id,
         action="forget"
-    )
-    db_memory_action = schema.UserMemoryAction(**memory_action.dict())
-    db.add(db_memory_action)
-    db.commit()
+    ))
 
 def memory_batch_action(db: Session, actions: List[Tuple[str, str]]):
     """
@@ -68,3 +65,15 @@ def memory_batch_action(db: Session, actions: List[Tuple[str, str]]):
         db_memory_action = schema.UserMemoryAction(**memory_action.dict())
         db.add(db_memory_action)
     db.commit()
+
+def on_batch_start(db: Session, user_memory_batch_id: str):
+    return create_user_memory_batch_action(db, UserMemoryBatchActionCreate(
+        batch_id=user_memory_batch_id,
+        action="start"
+    ))
+
+def on_batch_end(db: Session, user_memory_batch_id: str):
+    return create_user_memory_batch_action(db, UserMemoryBatchActionCreate(
+        batch_id=user_memory_batch_id,
+        action="end"
+    ))

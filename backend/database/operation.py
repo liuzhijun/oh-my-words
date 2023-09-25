@@ -204,6 +204,58 @@ def delete_user_memory_batch(db: Session, memory_batch_id: str):
         db.commit()
         return db_memory_batch
 
+# Pydantic models for UserMemoryBatchAction
+class UserMemoryBatchActionBase(BaseModel):
+    batch_id: str
+    action: str
+
+class UserMemoryBatchActionCreate(UserMemoryBatchActionBase):
+    pass
+
+class UserMemoryBatchActionUpdate(UserMemoryBatchActionBase):
+    pass
+
+class UserMemoryBatchAction(UserMemoryBatchActionBase):
+    id: str
+    create_time: str
+    update_time: str
+
+# CRUD operations for UserMemoryBatchAction
+def create_user_memory_batch_action(db: Session, memory_batch_action: UserMemoryBatchActionCreate):
+    db_memory_batch_action = schema.UserMemoryBatchAction(**memory_batch_action.dict())
+    db.add(db_memory_batch_action)
+    db.commit()
+    db.refresh(db_memory_batch_action)
+    return db_memory_batch_action
+
+def get_user_memory_batch_action(db: Session, memory_batch_action_id: str):
+    return db.query(schema.UserMemoryBatchAction).filter(schema.UserMemoryBatchAction.id == memory_batch_action_id).first()
+
+def get_user_memory_batch_actions(db: Session, skip: int = 0, limit: int = 10):
+    return db.query(schema.UserMemoryBatchAction).offset(skip).limit(limit).all()
+
+def get_user_memory_batch_actions_by_user_memory_batch_id(db: Session, user_memory_batch_id: str):
+    return db.query(schema.UserMemoryBatchAction).filter(schema.UserMemoryBatchAction.batch_id == user_memory_batch_id).all()
+
+def get_actions_at_each_batch(db: Session, memory_batch_ids: List[str]):
+    return db.query(schema.UserMemoryBatchAction).filter(schema.UserMemoryBatchAction.batch_id.in_(memory_batch_ids)).all()
+
+def update_user_memory_batch_action(db: Session, memory_batch_action_id: str, memory_batch_action: UserMemoryBatchActionUpdate):
+    db_memory_batch_action = db.query(schema.UserMemoryBatchAction).filter(schema.UserMemoryBatchAction.id == memory_batch_action_id).first()
+    if db_memory_batch_action:
+        for key, value in memory_batch_action.dict(exclude_unset=True).items():
+            setattr(db_memory_batch_action, key, value)
+        db.commit()
+        db.refresh(db_memory_batch_action)
+        return db_memory_batch_action
+
+def delete_user_memory_batch_action(db: Session, memory_batch_action_id: str):
+    db_memory_batch_action = db.query(schema.UserMemoryBatchAction).filter(schema.UserMemoryBatchAction.id == memory_batch_action_id).first()
+    if db_memory_batch_action:
+        db.delete(db_memory_batch_action)
+        db.commit()
+        return db_memory_batch_action
+
 # Pydantic models for UserMemoryWord
 class UserMemoryWordBase(BaseModel):
     batch_id: str

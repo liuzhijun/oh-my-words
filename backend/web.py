@@ -5,6 +5,7 @@ from database import SessionLocal, engine, Base
 
 import pandas as pd
 from collections import defaultdict
+from datetime import datetime
 
 
 Base.metadata.create_all(bind=engine)
@@ -18,7 +19,7 @@ books = get_all_books(db)
 
 with gr.Blocks() as demo:
     gr.Markdown("# 批量记单词")
-    gr.Markdown(f"共 {len(books)} 本书")
+    info = gr.Markdown(f"共 {len(books)} 本书")
     # with gr.Accordion("Open for More!"): # 折叠
     gr.Markdown("本项目基于[开源数据集](https://github.com/LinXueyuanStdio/DictionaryData)，并且[开源代码](https://github.com/LinXueyuanStdio/oh-my-words)，欢迎大家贡献代码～")
 
@@ -76,7 +77,7 @@ with gr.Blocks() as demo:
             [], label="已学会的单词", info="正式记忆前将去除已学会的单词，提高每个批次的新词密度，进而提高效率"
         )
         btn = gr.Button("生成批次", elem_id="btn", elem_classes=["abc", "def"])
-        status = gr.Textbox("", lines=1, label="生成结果")
+        status = gr.Textbox("3000 词大概要 2 小时才能写完所有的故事", lines=1, label="生成结果")
 
         def on_select_user(user):
             print('user', user)
@@ -115,7 +116,7 @@ with gr.Blocks() as demo:
                 if w.vc_vocabulary not in known_words:
                     unknown_words.append(w)
             track(db, user_book, unknown_words)
-            return "成功"
+            return f"成功！分为 {len(unknown_words) // user_book.batch_size} 个批次，共 {len(unknown_words)} 个单词"
 
         btn.click(submit, [select_user_book, known_words], [status])
 
@@ -178,6 +179,7 @@ with gr.Blocks() as demo:
             word_to_memorizing = {mw.word_id:mw.id for mw in memorizing_words}
             memorizing_to_word = {mw.id:mw.word_id for mw in memorizing_words}
             words = get_words_by_ids(db, [w.word_id for w in memorizing_words])
+            # 统计记忆量
             actions = get_actions_at_each_word(db, [w.id for w in memorizing_words])
             remember_count = defaultdict(int)
             forget_count = defaultdict(int)
@@ -186,6 +188,25 @@ with gr.Blocks() as demo:
                     remember_count[memorizing_to_word[a.user_memory_word_id]] += 1
                 else:
                     forget_count[memorizing_to_word[a.user_memory_word_id]] += 1
+            # 统计记忆效率
+            batch_actions = get_user_memory_batch_actions_by_user_memory_batch_id(db, memorizing_batch.id)
+            batch_actions.sort(key=lambda x: x.create_time)
+            start, end = None, None
+            total_duration = None
+            for a in batch_actions:
+                if a.action == "start":
+                    start: datetime = a.create_time
+                elif a.action == "end":
+                    end: datetime = a.create_time
+                    if start is None:
+                        continue
+                    if total_duration is None:
+                        total_duration = end - start
+                    else:
+                        total_duration += end - start
+            memory_speed = f"共 {len(books)} 本书"
+            if total_duration is not None:
+                memory_speed += f"，当前批次记忆效率 {len(memorizing_words) / total_duration.total_seconds():.2f} 词/秒，{total_duration.total_seconds():.2f} 秒/批次"
             for w in words:
                 new_options.append(f"{w.vc_vocabulary}")
                 word_df.append([
@@ -196,18 +217,18 @@ with gr.Blocks() as demo:
                 ])
             df = pd.DataFrame(word_df, columns=dataframe_header)
             # print(df)
-            # print(new_options)
+            print(new_options)
             story = memorizing_batch.story
             story = process(story)
-            # print(story)
+            print(story)
             translated_story = memorizing_batch.translated_story
             translated_story = process(translated_story)
-            # print(translated_story)
+            print(translated_story)
             # df = gr.DataFrame.update(
             #     value=df,
             #     max_rows=len(df),
             # )
-            return (df, story, translated_story, gr.CheckboxGroup.update(choices=new_options))
+            return (memory_speed, df, story, translated_story, gr.CheckboxGroup.update(choices=new_options))
 
         def on_select_user_book(user_book: str):
             """
@@ -240,6 +261,7 @@ with gr.Blocks() as demo:
                     owner_id=user_book.owner_id,
                     book_id=user_book.book_id,
                     title=user_book.title,
+                    random=user_book.random,
                     batch_size=user_book.batch_size,
                     memorizing_batch=batch_id
                 ))
@@ -252,7 +274,7 @@ with gr.Blocks() as demo:
                         value=current_batch_index,
                     ),)
 
-        batch_widget = [memorizing_dataframe, story, translated_story, memorize_action]
+        batch_widget = [info, memorizing_dataframe, story, translated_story, memorize_action]
         select_user.select(on_select_user, inputs=[select_user], outputs=[select_user_book])
         select_user_book.select(
             on_select_user_book,
@@ -263,12 +285,24 @@ with gr.Blocks() as demo:
         def submit_batch(batches, current_batch_index):
             memorizing_batch = batches[current_batch_index]
             updates = update_batch(memorizing_batch)
-            return updates + (gr.Slider.update(value=current_batch_index+1),)
-        def previous_batch(batches, current_batch_index):
+            return updates + (gr.Slider.update(value=current_batch_index+1), current_batch_index)
+        def previous_batch(batches: List[UserMemoryBatch], current_batch_index: int, user_book_id: str):
+            old_index = current_batch_index
             if current_batch_index <= 0:
                 current_batch_index = 0
             elif current_batch_index > 0:
                 current_batch_index -= 1
+            if current_batch_index != old_index:
+                # 下一页之前需要保存记忆进度
+                # print("下一页之前需要保存记忆进度")
+                # print(memorizing_dataframe)
+                # print(memorize_action)
+                # 保存批次进度
+                old_batch = batches[old_index]
+                current_batch = batches[current_batch_index]
+                on_batch_end(db, old_batch.id)
+                on_batch_start(db, current_batch.id)
+                update_user_book_memorizing_batch(db, user_book_id, current_batch.id)
             return submit_batch(batches, current_batch_index)
         def next_batch(batches: List[UserMemoryBatch], current_batch_index: int, user_book_id: str, memorizing_dataframe: pd.DataFrame, memorize_action: List[str]):
             old_index = current_batch_index
@@ -282,7 +316,10 @@ with gr.Blocks() as demo:
                 # print(memorizing_dataframe)
                 # print(memorize_action)
                 # 保存批次进度
+                old_batch = batches[old_index]
                 current_batch = batches[current_batch_index]
+                on_batch_end(db, old_batch.id)
+                on_batch_start(db, current_batch.id)
                 update_user_book_memorizing_batch(db, user_book_id, current_batch.id)
                 # 保存单词记忆进度
                 actions = []
@@ -298,13 +335,14 @@ with gr.Blocks() as demo:
             return submit_batch(batches, current_batch_index)
         previous_batch_btn.click(
             previous_batch,
-            inputs=[batches, current_batch_index],
-            outputs=batch_widget + [progress]
+            inputs=[batches, current_batch_index, user_book_id],
+            outputs=batch_widget + [progress, current_batch_index]
         )
         next_batch_btn.click(
             next_batch,
             inputs=[batches, current_batch_index, user_book_id, memorizing_dataframe, memorize_action],
-            outputs=batch_widget + [progress]
+            outputs=batch_widget + [progress, current_batch_index]
         )
 
-demo.launch()
+if __name__ == "__main__":
+    demo.launch(server_name="127.0.0.1")

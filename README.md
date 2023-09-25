@@ -11,6 +11,8 @@
 - [x] 复述故事，即费曼学习法，故事是单词的记忆之锚。
 - [x] 复述故事而不是复述单词，故事具有连续性，更符合人类天性，容易记。
 
+![](assets/screenshot.png)
+
 # 使用
 
 1. 下载数据（[单词书数据源](https://github.com/LinXueyuanStdio/DictionaryData)）
@@ -27,8 +29,10 @@
 3. 初始化数据库
     ```bash
     python init_database.py
+    // 或 python main.py database
     ```
 4. 启动！
     ```bash
     python web.py
+    // 或 python main.py web
     ```
